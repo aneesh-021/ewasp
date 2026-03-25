@@ -1,0 +1,4 @@
+date,product_id,quantity_sold,revenue,region  
+2024-01-01,P101,10,500,West  
+2024-01-02,P102,5,250,East  
+2024-01-03,P103,8,400,North 
