@@ -13,7 +13,7 @@ async def upload_file(file: UploadFile = File(...)):
     # Clean column names
     df.columns = df.columns.str.strip()
 
-    # Clean ALL string values properly (final fix)
+    # Clean ALL string values properly
     for col in df.columns:
         df[col] = df[col].apply(lambda x: x.strip() if isinstance(x, str) else x)
 
@@ -32,9 +32,45 @@ async def upload_file(file: UploadFile = File(...)):
                 "error": str(e)
             })
 
+    # ✅ ETL STARTS HERE (INSIDE FUNCTION)
+    valid_df = pd.DataFrame(valid_data)
+
+    if not valid_df.empty:
+
+        revenue_by_region = (
+            valid_df.groupby("region")["revenue"]
+            .sum()
+            .reset_index()
+            .to_dict(orient="records")
+        )
+
+        quantity_by_product = (
+            valid_df.groupby("product_id")["quantity_sold"]
+            .sum()
+            .reset_index()
+            .to_dict(orient="records")
+        )
+
+        daily_sales = (
+            valid_df.groupby("date")["revenue"]
+            .sum()
+            .reset_index()
+            .to_dict(orient="records")
+        )
+
+    else:
+        revenue_by_region = []
+        quantity_by_product = []
+        daily_sales = []
+
     return {
         "valid_count": len(valid_data),
         "invalid_count": len(invalid_data),
         "valid_data": valid_data,
-        "invalid_data": invalid_data
+        "invalid_data": invalid_data,
+        "analytics": {
+            "revenue_by_region": revenue_by_region,
+            "quantity_by_product": quantity_by_product,
+            "daily_sales": daily_sales
+        }
     }
