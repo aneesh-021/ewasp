@@ -2,24 +2,27 @@ from fastapi import APIRouter, UploadFile, File
 import pandas as pd
 import io
 from app.schemas.sales_schema import SalesData
+from app.db.snowflake_conn import get_connection
 
 router = APIRouter()
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
+    # Read file
     contents = await file.read()
     df = pd.read_csv(io.StringIO(contents.decode("utf-8")))
 
     # Clean column names
     df.columns = df.columns.str.strip()
 
-    # Clean ALL string values properly
+    # Clean string values
     for col in df.columns:
         df[col] = df[col].apply(lambda x: x.strip() if isinstance(x, str) else x)
 
     valid_data = []
     invalid_data = []
 
+    # Validation
     for _, row in df.iterrows():
         row_dict = row.to_dict()
 
@@ -32,11 +35,10 @@ async def upload_file(file: UploadFile = File(...)):
                 "error": str(e)
             })
 
-    # ✅ ETL STARTS HERE (INSIDE FUNCTION)
+    # ================= ETL =================
     valid_df = pd.DataFrame(valid_data)
 
     if not valid_df.empty:
-
         revenue_by_region = (
             valid_df.groupby("region")["revenue"]
             .sum()
@@ -57,12 +59,44 @@ async def upload_file(file: UploadFile = File(...)):
             .reset_index()
             .to_dict(orient="records")
         )
-
     else:
         revenue_by_region = []
         quantity_by_product = []
         daily_sales = []
 
+    # ================= SNOWFLAKE INSERT =================
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        print("Connected to Snowflake")
+
+        for row in valid_data:
+            cursor.execute(
+                """
+                INSERT INTO SALES_DATA (date, product_id, quantity_sold, revenue, region)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    row["date"],
+                    row["product_id"],
+                    row["quantity_sold"],
+                    row["revenue"],
+                    row["region"]
+                )
+            )
+
+        conn.commit()  # 🔥 VERY IMPORTANT
+
+        print("Inserted rows:", len(valid_data))
+
+        cursor.close()
+        conn.close()
+
+    except Exception as e:
+        print("Snowflake Error:", e)
+
+    # ================= RESPONSE =================
     return {
         "valid_count": len(valid_data),
         "invalid_count": len(invalid_data),
