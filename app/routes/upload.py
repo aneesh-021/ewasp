@@ -71,22 +71,45 @@ async def upload_file(file: UploadFile = File(...)):
 
         print("Connected to Snowflake")
 
-        for row in valid_data:
-            cursor.execute(
-                """
-                INSERT INTO SALES_DATA (date, product_id, quantity_sold, revenue, region)
-                VALUES (%s, %s, %s, %s, %s)
-                """,
-                (
-                    row["date"],
-                    row["product_id"],
-                    row["quantity_sold"],
-                    row["revenue"],
-                    row["region"]
-                )
+        data_to_insert = [
+            (
+                row["date"],
+                row["product_id"],
+                row["quantity_sold"],
+                row["revenue"],
+                row["region"],
+                row["cost"],
+                row["vendor_id"],
+                row["vendor_delay_days"],
+                row["inventory_level"],
+                row["price"],
+                row["discount"],
+                row["customer_segment"],
+                row["order_priority"],
+                row["lead_time_days"],
+                row["return_rate"]
             )
+            for row in valid_data
+        ]
 
-        conn.commit()  # 🔥 VERY IMPORTANT
+        cursor.executemany(
+            """
+            INSERT INTO SALES_DB.SALES_SCHEMA.SALES_DATA
+            (date, product_id, quantity_sold, revenue, region,
+             cost, vendor_id, vendor_delay_days,
+             inventory_level, price, discount,
+             customer_segment, order_priority,
+             lead_time_days, return_rate)
+            VALUES (%s, %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s,
+                    %s, %s)
+            """,
+            data_to_insert
+        )
+
+        conn.commit()
 
         print("Inserted rows:", len(valid_data))
 
