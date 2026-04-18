@@ -7,7 +7,6 @@ load_dotenv()
 
 def fetch_data():
     try:
-        # Connect to Snowflake
         conn = snowflake.connector.connect(
             user=os.getenv("SNOWFLAKE_USER"),
             password=os.getenv("SNOWFLAKE_PASSWORD"),
@@ -17,21 +16,44 @@ def fetch_data():
             schema=os.getenv("SNOWFLAKE_SCHEMA")
         )
 
-        query = f"SELECT * FROM {os.getenv('SNOWFLAKE_TABLE')}"
+        cursor = conn.cursor()
 
-        # Load into Pandas
-        df = pd.read_sql(query, conn)
+        query = f"""
+        SELECT *
+        FROM {os.getenv("SNOWFLAKE_TABLE")}
+        LIMIT 100
+        """
 
-        conn.close()
+        cursor.execute(query)
 
-        print("✅ Data fetched successfully")
+        # Fetch data
+        data = cursor.fetchall()
+
+        # Get column names
+        columns = [col[0] for col in cursor.description]
+
+        # Convert to DataFrame
+        df = pd.DataFrame(data, columns=columns)
+
+        print(" Data fetched successfully")
         return df
 
     except Exception as e:
-        print("❌ Error:", e)
+        print(" Error:", e)
         return None
+
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
 
 
 if __name__ == "__main__":
     df = fetch_data()
-    print(df.head())
+
+    if df is not None:
+        print(df.head())
+    else:
+        print(" No data fetched")
