@@ -5,6 +5,7 @@ from risk_engine import create_features, generate_risks
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
+import joblib
 
 
 def prepare_data():
@@ -71,3 +72,11 @@ if __name__ == "__main__":
 
     print("\nPredictions:")
     print(preds)
+
+model, le = train_model()
+
+import joblib
+joblib.dump(model, "model.pkl")
+joblib.dump(le, "label_encoder.pkl")
+
+print("Model saved")
